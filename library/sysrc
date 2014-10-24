@@ -68,12 +68,12 @@ from ansible.module_utils.basic import *
 
 class sysrc(object):
     def __init__(self, module, name, value, dest):
-        self.module=module
-        self.name=name
-        self.changed=False
-        self.value=value
-        self.dest=dest
-        self.sysrc=module.get_bin_path('sysrc')
+        self.module  = module
+        self.name    = name
+        self.changed = False
+        self.value   = value
+        self.dest    = dest
+        self.sysrc   = module.get_bin_path('sysrc', True)
 
     # Returns whether or not the module is set to load in /boot/loader.conf
     def exists(self):
@@ -111,25 +111,34 @@ class sysrc(object):
         
 def main():
     module = AnsibleModule(
-        argument_spec=dict(
-            name  = dict(required=True),
-            value = dict(default=''),
-            state = dict(default='present', choices=['present','absent']),
-            dest  = dict(default='/etc/rc.conf')
+        argument_spec = dict(
+            name  = dict(
+                required = True
+            ),
+            value = dict(
+                default = None
+            ),
+            state = dict(
+                default = 'present',
+                choices = [ 'present', 'absent' ]
+            ),
+            dest  = dict(
+                default = '/etc/rc.conf'
+            )
         ),
         supports_check_mode=True,
     )
     
-    name = module.params.pop('name')
-    value = module.params.pop('value')
-    state = module.params.pop('state')
-    dest = module.params.pop('dest')
-    
-    result = {}
-    result['name'] = name
-    result['state'] = state
-    result['value'] = value
-    result['dest']  = dest
+    name   = module.params.pop('name')
+    value  = module.params.pop('value')
+    state  = module.params.pop('state')
+    dest   = module.params.pop('dest')
+    result = {
+        'name'  : name,
+        'state' : state,
+        'value' : name,
+        'dest'  : dest,
+    }
     
     rcValue = sysrc(module, name, value, dest)
     

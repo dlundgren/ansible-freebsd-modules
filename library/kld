@@ -58,10 +58,10 @@ from ansible.module_utils.basic import *
 
 class FreeBSDKernelModule(object):
     def __init__(self, module, name):
-        self.module=module
-        self.name=name
-        self.changed=False
-        self.sysrc=module.get_bin_path('sysrc')
+        self.module  = module
+        self.name    = name
+        self.changed = False
+        self.sysrc   = module.get_bin_path('sysrc', True)
 
     def loaded(self):
         cmd = [self.module.get_bin_path('kldstat', True)]
@@ -139,35 +139,42 @@ class FreeBSDKernelModule(object):
         
 def main():
     module = AnsibleModule(
-        argument_spec=dict(
-            name  = dict(required=True),
-            load = dict(default=True, choices=[True, False]),
-            boot = dict(default=True, choices=[True, False])
+        supports_check_mode = True,
+        argument_spec       = dict(
+            name = dict(
+                required = True
+            ),
+            load = dict(
+                default = True,
+                choices = [ True, False ]
+            ),
+            boot = dict(
+                default = True
+            )
         ),
-        supports_check_mode=True,
     )
     
-    name = module.params.pop('name')
-    load = module.params.pop('load')
-    boot = module.params.pop('boot')
-    
-    result = {}
-    result['name'] = name
-    result['load'] = load
-    result['boot']  = boot
+    name   = module.params.pop('name')
+    load   = module.params.pop('load')
+    boot   = module.params.pop('boot')
+    result = {
+        'name' : name,
+        'load' : load,
+        'boot' : boot
+    }
     
     kld = FreeBSDKernelModule(module, name)
     
-    # ensure it is set for boot
-    if boot == 'present':
-        not kld.exists() and kld.create()
-    elif boot == 'absent':
-        kld.exists and kld.destroy()
-
-    if load == 'yes':
+    if load:
         not kld.loaded() and kld.load()
-    elif load == 'no':
+    else:
         kld.loaded() and kld.unload()
+
+    # ensure it is set for boot
+    if boot:
+        not kld.exists() and kld.create()
+    else:
+        kld.exists() and kld.destroy()
 
     result['changed'] = kld.changed
 
