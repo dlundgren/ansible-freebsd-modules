@@ -1,0 +1,145 @@
+#!/usr/bin/python
+#coding: utf-8 -*-
+# (c) 2014, David Lundgren <dlundgren@syberisle.net>
+#
+# This file is part of Ansible
+#
+# This module is free software: you can redistribute it and/or modify
+# it under the terms of the MIT license.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+#
+# You should have received a copy of the MIT.
+# If not, see <http://opensource.org/licenses/MIT>.
+
+DOCUMENTATION = '''
+---
+module: sysrc
+short_description: Manage FreeBSD /etc/rc.conf
+requirements: []
+version_added: 1.7
+author: David Lundgren
+description:
+    - Manages the /etc/rc.conf for FreeBSD
+options:
+    name:
+        required: true
+        description:
+            - Name of variable in $dest to manage.
+            - NOTE: cannot use . (periods) in the name as sysrc doesn't support it
+    value:
+        required: false
+        description:
+            - The value if "present"
+    state:
+        required: false
+        default: "present"
+        choices: [ present, absent ]
+        description:
+            - Whether the var should be present or absent in $dest.
+    dest:
+        required: false
+        default: "/etc/rc.conf"
+        description:
+            - What file should be operated on
+'''
+
+EXAMPLES = '''
+---
+# enable mysql in the /etc/rc.conf
+- name: Configure mysql pid file
+  sysrc:
+    name: mysql_pidfile
+    value: "/var/run/mysqld/mysqld.pid"
+
+# enable accf_http kld in the boot loader
+- name: enable accf_http kld
+  sysrc:
+    name: accf_http_load
+    state: present
+    value: "YES"
+    dest: /boot/loader.conf
+'''
+
+from ansible.module_utils.basic import *
+
+class sysrc(object):
+    def __init__(self, module, name, value, dest):
+        self.module=module
+        self.name=name
+        self.changed=False
+        self.value=value
+        self.dest=dest
+        self.sysrc=module.get_bin_path('sysrc')
+
+    # Returns whether or not the module is set to load in /boot/loader.conf
+    def exists(self):
+        # sysrc doesn't really use exit codes
+        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, self.name]))
+        
+        if out.find("unknown variable") == -1 and out.find("%s: %s" % (self.name, self.value)) >= 0:
+            return True
+        else:
+            return False
+        
+    def create(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, "%s=%s" % (self.name, self.value)]))
+        if out.find("%s_load:" % (self.name)) == 0 and out.find("-> %s" % (self.value)) > 0:
+            self.changed = True
+            return True
+        else:
+            return False
+    
+    def destroy(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, '-x', self.name]))
+        if out.find("unknown variable") == -1:
+            return False
+        else:
+            self.changed = True
+            return True
+        
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            name  = dict(required=True),
+            value = dict(default=''),
+            state = dict(default='present', choices=['present','absent']),
+            dest  = dict(default='/etc/rc.conf')
+        ),
+        supports_check_mode=True,
+    )
+    
+    name = module.params.pop('name')
+    value = module.params.pop('value')
+    state = module.params.pop('state')
+    dest = module.params.pop('dest')
+    
+    result = {}
+    result['name'] = name
+    result['state'] = state
+    result['value'] = value
+    result['dest']  = dest
+    
+    rcValue = sysrc(module, name, value, dest)
+    
+    if state == 'present':
+        not rcValue.exists() and rcValue.create()
+    elif state == 'absent':
+        rcValue.exists() and rcValue.destroy()
+
+    result['changed'] = rcValue.changed
+
+    module.exit_json(**result)
+
+main()

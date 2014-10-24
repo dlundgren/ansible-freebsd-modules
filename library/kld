@@ -1,0 +1,177 @@
+#!/usr/bin/python
+#coding: utf-8 -*-
+# (c) 2014, David Lundgren <dlundgren@syberisle.net>
+#
+# This file is part of Ansible
+#
+# This module is free software: you can redistribute it and/or modify
+# it under the terms of the MIT license.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+#
+# You should have received a copy of the MIT.
+# If not, see <http://opensource.org/licenses/MIT>.
+
+DOCUMENTATION = '''
+---
+module: kld
+short_description: Add or remove kernel modules
+requirements: []
+version_added: 1.7
+author: David Lundgren
+description:
+    - Add or remove kernel modules.
+options:
+    name:
+        required: true
+        description:
+            - Name of kernel module to manage.
+    load:
+        required: false
+        default: true
+        choices: [ true, false ]
+        description:
+            - Whether the module should be loaded.
+    boot:
+        required: false
+        default: false
+        choices: [ true, false ]
+        description:
+            - Whether the module should be in /boot/loader.conf.
+'''
+
+EXAMPLES = '''
+# Adds accf_http to the bootloader and loads it
+- kld:
+    name: accf_http
+# Removes accf_http from the bootloader and loads it
+- kld:
+    name: accf_http
+    load: true
+    boot: false
+'''
+
+from ansible.module_utils.basic import *
+
+class FreeBSDKernelModule(object):
+    def __init__(self, module, name):
+        self.module=module
+        self.name=name
+        self.changed=False
+        self.sysrc=module.get_bin_path('sysrc')
+
+    def loaded(self):
+        cmd = [self.module.get_bin_path('kldstat', True)]
+        # -q is not available on FreeBSD before 6.0 so using it would break on those versions
+        cmd.append('-m')
+        cmd.append(self.name)
+        (rc, out, err) = self.module.run_command(' '.join(cmd))
+        if rc == 0:
+            return True
+        else:
+            return False
+    
+    # Returns whether or not the module is set to load in /boot/loader.conf
+    def exists(self):
+        # sysrc doesn't really use exit codes
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load" %( self.sysrc, self.name ))
+        
+        if out.find("unknown variable") == -1:
+            return True
+        else:
+            return False
+        
+    def create(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load=YES" % (self.sysrc, self.name))
+        if out.find("%s_load:" % (self.name)) and out.find("-> YES"):
+            self.changed = True
+            return True
+        else:
+            return False
+    
+    def destroy(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf -x %s_load" % (self.sysrc, self.name))
+        if out.find("unknown variable") == -1:
+            return False
+        else:
+            self.changed = True
+            return True
+    
+    def load(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        cmd = [self.module.get_bin_path('kldload', True)]
+        cmd.append('-n')
+        cmd.append(self.name)
+        (rc, out, err) = self.module.run_command(' '.join(cmd))
+        if rc == 0:
+            self.changed = True
+            return True
+        else:
+            return False
+
+    def unload(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        cmd = [self.module.get_bin_path('kldunload', True)]
+        cmd.append(self.name)
+        (rc, out, err) = self.module.run_command(' '.join(cmd))
+        if rc == 0:
+            self.changed = True
+            return True
+        else:
+            return False
+        
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            name  = dict(required=True),
+            load = dict(default=True, choices=[True, False]),
+            boot = dict(default=True, choices=[True, False])
+        ),
+        supports_check_mode=True,
+    )
+    
+    name = module.params.pop('name')
+    load = module.params.pop('load')
+    boot = module.params.pop('boot')
+    
+    result = {}
+    result['name'] = name
+    result['load'] = load
+    result['boot']  = boot
+    
+    kld = FreeBSDKernelModule(module, name)
+    
+    # ensure it is set for boot
+    if boot == 'present':
+        not kld.exists() and kld.create()
+    elif boot == 'absent':
+        kld.exists and kld.destroy()
+
+    if load == 'yes':
+        not kld.loaded() and kld.load()
+    elif load == 'no':
+        kld.loaded() and kld.unload()
+
+    result['changed'] = kld.changed
+
+    module.exit_json(**result)
+
+# import module snippets
+main()
