@@ -91,7 +91,7 @@ class sysrc(object):
             return
         
         (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, "%s=%s" % (self.name, self.value)]))
-        if out.find("%s_load:" % (self.name)) == 0 and out.find("-> %s" % (self.value)) > 0:
+        if out.find("%s:" % (self.name)) == 0 and out.find("-> %s" % (self.value)) > 0:
             self.changed = True
             return True
         else:
