@@ -75,11 +75,9 @@ class sysrc(object):
         self.dest    = dest
         self.sysrc   = module.get_bin_path('sysrc', True)
 
-    # Returns whether or not the module is set to load in /boot/loader.conf
     def exists(self):
         # sysrc doesn't really use exit codes
-        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, self.name]))
-        
+        (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, self.name])
         if out.find("unknown variable") == -1 and out.find("%s: %s" % (self.name, self.value)) >= 0:
             return True
         else:
@@ -90,7 +88,7 @@ class sysrc(object):
             self.changed = True
             return
         
-        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, "%s=%s" % (self.name, self.value)]))
+        (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, "%s=%s" % (self.name, self.value)])
         if out.find("%s:" % (self.name)) == 0 and out.find("-> %s" % (self.value)) > 0:
             self.changed = True
             return True
@@ -102,7 +100,7 @@ class sysrc(object):
             self.changed = True
             return
         
-        (rc, out, err) = self.module.run_command(' '.join([self.sysrc, '-f', self.dest, '-x', self.name]))
+        (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, '-x', self.name])
         if out.find("unknown variable") == -1:
             return False
         else:
