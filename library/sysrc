@@ -79,7 +79,7 @@ class sysrc(object):
     def exists(self):
         # sysrc doesn't really use exit codes
         (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, self.name])
-        if out.find("unknown variable") == -1 and re.match("%s: %s$" % (self.name, self.value), out) is not None:
+        if out.find("unknown variable") == -1 and re.match("%s: %s$" % (re.escape(self.name), re.escape(self.value)), out) is not None:
             return True
         else:
             return False
@@ -90,7 +90,7 @@ class sysrc(object):
             return
 
         (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, "%s=%s" % (self.name, self.value)])
-        if out.find("%s:" % (self.name)) == 0 and re.search("-\> %s$" % self.value, out) is not None:
+        if out.find("%s:" % (self.name)) == 0 and re.search("\-\> %s$" % re.escape(self.value), out) is not None:
             self.changed = True
             return True
         else:
