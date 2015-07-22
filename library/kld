@@ -149,7 +149,8 @@ def main():
                 choices = [ True, False ]
             ),
             boot = dict(
-                default = True
+                default = True,
+                choices = [ True, False ]
             )
         ),
     )
