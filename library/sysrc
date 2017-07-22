@@ -37,14 +37,20 @@ options:
     state:
         required: false
         default: "present"
-        choices: [ present, absent ]
+        choices: [ present, absent, append, subtract ]
         description:
             - Whether the var should be present or absent in $dest.
+            - append/subtract will add or remove the value from a list.
     dest:
         required: false
         default: "/etc/rc.conf"
         description:
             - What file should be operated on
+    delim:
+        required: false
+        default: " "
+        description:
+            - Delimiter used in append/subtract mode
 '''
 
 EXAMPLES = '''
@@ -62,18 +68,26 @@ EXAMPLES = '''
     state: present
     value: "YES"
     dest: /boot/loader.conf
+
+# add gif0 to cloned_interfaces
+- name: add gif0 interface
+  sysrc:
+    name: cloned_interfaces
+    state: append
+    value: "gif0"
 '''
 
 import re
 from ansible.module_utils.basic import *
 
 class sysrc(object):
-    def __init__(self, module, name, value, dest):
+    def __init__(self, module, name, value, dest, delim):
         self.module  = module
         self.name    = name
         self.changed = False
         self.value   = value
         self.dest    = dest
+        self.delim   = delim
         self.sysrc   = module.get_bin_path('sysrc', True)
 
     def exists(self):
@@ -81,6 +95,17 @@ class sysrc(object):
         (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, self.name])
         if out.find("unknown variable") == -1 and re.match("%s: %s$" % (re.escape(self.name), re.escape(self.value)), out) is not None:
             return True
+        else:
+            return False
+
+    def contains(self):
+        (rc, out, err) = self.module.run_command([self.sysrc, '-n', '-f', self.dest, self.name])
+        if out.find("unknown variable") == -1:
+            values = out.strip().split(self.delim)
+            if self.value in values:
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -108,6 +133,41 @@ class sysrc(object):
             self.changed = True
             return True
 
+    def append(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+
+        setstring = '%s+=%s%s' % (self.name, self.delim, self.value)
+        (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, setstring])
+        if out.find("%s:" % (self.name)) == 0:
+            values = out.split(' -> ')[1].strip().split(self.delim)
+            if self.value in values:
+                self.changed = True
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def subtract(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+
+        setstring = '%s-=%s%s' % (self.name, self.delim, self.value)
+        (rc, out, err) = self.module.run_command([self.sysrc, '-f', self.dest, setstring])
+        if out.find("%s:" % (self.name)) == 0:
+            values = out.split(' -> ')[1].strip().split(self.delim)
+            if self.value in values:
+                return False
+            else:
+                self.changed = True
+                return True
+        else:
+            return False
+
+
 def main():
     module = AnsibleModule(
         argument_spec = dict(
@@ -119,10 +179,13 @@ def main():
             ),
             state = dict(
                 default = 'present',
-                choices = [ 'present', 'absent' ]
+                choices = [ 'present', 'absent', 'append', 'subtract' ]
             ),
             dest  = dict(
                 default = '/etc/rc.conf'
+            ),
+            delim = dict(
+                default = ' '
             )
         ),
         supports_check_mode=True,
@@ -132,19 +195,25 @@ def main():
     value  = module.params.pop('value')
     state  = module.params.pop('state')
     dest   = module.params.pop('dest')
+    delim  = module.params.pop('delim')
     result = {
         'name'  : name,
         'state' : state,
-        'value' : name,
+        'value' : value,
         'dest'  : dest,
+        'delim' : delim,
     }
 
-    rcValue = sysrc(module, name, value, dest)
+    rcValue = sysrc(module, name, value, dest, delim)
 
     if state == 'present':
         not rcValue.exists() and rcValue.create()
     elif state == 'absent':
         rcValue.exists() and rcValue.destroy()
+    elif state == 'append':
+        not rcValue.contains() and rcValue.append()
+    elif state == 'subtract':
+        rcValue.contains() and rcValue.subtract()
 
     result['changed'] = rcValue.changed
 
