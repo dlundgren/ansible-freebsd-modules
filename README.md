@@ -54,4 +54,11 @@ Accepts the following options
     state: present
     value: "YES"
     dest: /boot/loader.conf
+
+# add gif0 to cloned_interfaces
+- name: add gif0 interface
+  sysrc:
+    name: cloned_interfaces
+    state: append
+    value: "gif0"
 ```
