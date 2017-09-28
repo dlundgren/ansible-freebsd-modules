@@ -66,8 +66,8 @@ class FreeBSDKernelModule(object):
     def loaded(self):
         cmd = [self.module.get_bin_path('kldstat', True)]
         # -q is not available on FreeBSD before 6.0 so using it would break on those versions
-        cmd.append('-m')
-        cmd.append(self.name)
+        cmd.append('-n')
+        cmd.append("%s.ko" % self.name)
         (rc, out, err) = self.module.run_command(' '.join(cmd))
         if rc == 0:
             return True
