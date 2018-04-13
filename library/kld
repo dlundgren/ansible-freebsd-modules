@@ -146,13 +146,11 @@ def main():
             ),
             load = dict(
                 default = True,
-                type    = 'bool',
-                choices = BOOLEANS
+                type    = 'bool'
             ),
             boot = dict(
                 default = True,
-                type    = 'bool',
-                choices = BOOLEANS
+                type    = 'bool'
             )
         ),
     )
