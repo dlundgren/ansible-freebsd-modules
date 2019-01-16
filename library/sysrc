@@ -185,7 +185,14 @@ class sysrc(object):
             cmd += ['-j', self.jail]
         cmd.extend(args)
 
-        return self.module.run_command(cmd)
+        (rc, out, err) = self.module.run_command(cmd)
+        if self.module._verbosity > 0:
+            self.cmd = cmd
+
+        if self.module._verbosity >= 4:
+            self.cmd_output = out
+
+        return (rc, out, err)
 
 
 def main():
@@ -215,6 +222,11 @@ def main():
     )
 
     name   = module.params.pop('name')
+    if not re.match('^[a-zA-Z0-9_]+$', name):
+        module.fail_json(
+            msg="Name may only contain alpha-numeric and underscore characters"
+        )
+
     value  = module.params.pop('value')
     state  = module.params.pop('state')
     dest   = module.params.pop('dest')
@@ -239,6 +251,12 @@ def main():
         not rcValue.contains() and rcValue.append()
     elif state == 'subtract':
         rcValue.contains() and rcValue.subtract()
+
+    if module._verbosity > 0:
+        result['command'] = ' '.join(rcValue.cmd)
+
+    if module._verbosity >= 4:
+        result['output'] = rcValue.cmd_output
 
     result['changed'] = rcValue.changed
 
