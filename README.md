@@ -40,7 +40,7 @@ Uses [sysrc(8)](https://www.freebsd.org/cgi/man.cgi?query=sysrc) to set a sys va
 | dest      | | The file to modify |
 | name      | | Name of the variable to manage |
 | value     | | Required when not `state=absent` |
-| state     | **Choices**: <ul><li>append><li>absent</li><li>**present**</li><li>subtract</li></ul> | Whether the var should be appended, substracted, exist, or not exist. |
+| state     | **Choices**: <ul><li>append<li>absent</li><li>**present**</li><li>subtract</li></ul> | Whether the var should be appended, substracted, exist, or not exist. |
 
 ### Examples
 
