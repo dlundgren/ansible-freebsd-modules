@@ -182,8 +182,9 @@ class sysrc(object):
     def run_sysrc(self, *args):
         cmd = [self.sysrc, '-f', self.dest]
         if self.jail:
-            cmd.append('-j', self.jail)
+            cmd += ['-j', self.jail]
         cmd.extend(args)
+
         return self.module.run_command(cmd)
 
 
