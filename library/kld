@@ -79,7 +79,8 @@ class FreeBSDKernelModule(object):
         # sysrc doesn't really use exit codes
         (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load" %( self.sysrc, self.name ))
         
-        if out.find("unknown variable") == -1:
+        # Message comes out on err...
+        if err.find("unknown variable") == -1:
             return True
         else:
             return False
