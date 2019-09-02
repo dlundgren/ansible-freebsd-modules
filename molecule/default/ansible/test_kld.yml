@@ -1,0 +1,54 @@
+---
+# certain modules can be loaded/unloaded without a reboot:
+#  - wsp
+#  - wlan_acl
+#  - wlan_xauth
+#  - s3
+
+#### BEGIN TESTS
+- name: CHANGED | boot & load
+  kld:
+    name: wsp
+
+- name: CHANGED | boot=no
+  kld:
+    name: wlan_acl
+    boot: no
+
+- name: CHANGED | load=no
+  kld:
+    name: wlan_xauth
+    load: no
+
+- name: OK | already booted
+  register: result
+  failed_when: result.changed
+  kld:
+    name: wlan_xauth
+    load: no
+
+- name: OK | already loaded
+  kld:
+    name: s3
+    boot: no
+
+- name: CHANGED | unload s3
+  kld:
+    name: s3
+    load: no
+
+# Test for #7 to check that kldunload errors properly
+- name: OK | can't unload accf_dns
+  register: result
+  failed_when: '"Operation not supported" not in result.msg'
+  kld:
+    name: accf_dns
+    load: no
+
+# Test for #7
+- name: OK | can't unload non-found modules
+  register: result
+  failed_when: '"unload file" not in result.msg'
+  kld:
+    name: fdescfs
+    load: no

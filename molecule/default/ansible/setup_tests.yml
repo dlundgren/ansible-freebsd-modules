@@ -1,0 +1,43 @@
+---
+# KLD settings
+- name: SETUP | reset system /boot/loader.conf
+  copy:
+    src: loader.conf
+    dest: /boot/loader.conf
+
+- name: SETUP | unload kernel modules
+  command: "kldunload {{ item }}"
+  changed_when: false
+  failed_when: false
+  with_items:
+    - wsp
+    - wlan_acl
+    - wlan_xauth
+
+- name: SETUP | load s3
+  command: "kldload {{ item }}"
+  changed_when: false
+  failed_when: false
+  with_items:
+    - s3
+    - accf_dns
+
+# sysrc settings
+- name: SETUP | reset test files
+  copy:
+    src: "{{ item.name }}"
+    dest: "{{ item.path }}/{{ item.name }}"
+  with_items:
+    - name: rc.conf
+      path: /etc
+    - name: test_sysrc.conf
+      path: /tmp
+
+- name: SETUP | remove test file
+  ignore_errors: true
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /tmp/test_sysrc_new
+    - /usr/jails/testjail/etc/rc.conf

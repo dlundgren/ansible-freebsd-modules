@@ -1,0 +1,12 @@
+---
+- name: Prepare
+  hosts: freebsd
+  become: yes
+  gather_facts: False
+#  no_log: "{{ not lookup('env', 'MOLECULE_DEBUG') | bool }}"
+  tasks:
+    - name: system setup
+      include: ansible/setup_system.yml
+
+    - name: test setup
+      include: ansible/setup_tests.yml

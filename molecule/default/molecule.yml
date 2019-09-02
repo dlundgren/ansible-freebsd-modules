@@ -1,0 +1,98 @@
+---
+molecule:
+  vagrantfile_template: VagrantFile.j2
+driver:
+  name: vagrant
+  provider:
+    name: virtualbox
+verifier:
+  name: testinfra
+  lint:
+    name: flake8
+    options:
+      ignore: "E501"
+lint:
+  name: yamllint
+  options:
+    config-data:
+      ignore: |
+        venv/
+        kakaw/
+provisioner:
+  name: ansible
+  options:
+    v: true
+platforms:
+  # Using this as it allows us to test that old style stdout from sysrc still works
+  - name: freebsd-102
+    groups:
+      - freebsd
+    # Need to use syberisle/FreeBSD-10.2-RELEASE as it is set up properly
+    box: syberisle/FreeBSD-10.2-RELEASE
+    # https://www.vagrantup.com/docs/synced-folders/basic_usage.html
+    instance_raw_config_args:
+      - "vm.synced_folder '.', '/vagrant', disabled: true"
+      - 'ssh.shell = "sh"'
+    interfaces:
+      - network_name: private_network
+        type: static
+        ip: 172.31.250.102
+        auto_config: true
+  - name: freebsd-12
+    groups:
+      - freebsd
+    box: freebsd/FreeBSD-12.0-RELEASE
+    # https://www.vagrantup.com/docs/synced-folders/basic_usage.html
+    instance_raw_config_args:
+      - "vm.synced_folder '.', '/vagrant', disabled: true"
+      - 'ssh.shell = "sh"'
+    interfaces:
+      - network_name: private_network
+        type: static
+        ip: 172.31.250.120
+        auto_config: true
+#    - name: freebsd-102
+#      box: freebsd/FreeBSD-10.3-RELEASE
+#    - name: freebsd-104
+#      box: freebsd/FreeBSD-10.4-RELEASE
+#    - name: freebsd-110
+#      box: freebsd/FreeBSD-11.0-RELEASE
+#    - name: freebsd-111
+#      box: freebsd/FreeBSD-11.1-RELEASE
+#    - name: freebsd-112
+#      box: freebsd/FreeBSD-11.2-RELEASE
+#    - name: freebsd-113
+#      box: freebsd/FreeBSD-11.3-RELEASE
+#    - name: freebsd-120
+#      box: freebsd/FreeBSD-12.0-RELEASE
+providers:
+  - name: virtualbox
+    type: virtualbox
+    options:
+      memory: 512
+      cpus: 2
+#  instances:
+#    - name: test
+#      platform: freebsd-102
+#      ansible_groups:
+#        - group_1
+#      interfaces:
+#        - network_name: private_network
+#          type: dhcp
+#          auto_config: true
+scenario:
+  name: default
+  test_sequence:
+    - dependency
+    - lint
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    # idempotence (removed as we can't guarantee this on the testing)
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

@@ -102,30 +102,33 @@ class sysrc(object):
         self.jail    = jail
         self.sysrc   = module.get_bin_path('sysrc', True)
 
+    def has_unknown_variable(self, out, err):
+        # newer versions of sysrc use stderr instead of stdout
+        return err.find("unknown variable") > 0 or out.find("unknown variable") > 0
+
     def exists(self):
         # sysrc doesn't really use exit codes
         (rc, out, err) = self.run_sysrc(self.name)
-        if out.find("unknown variable") == -1 and re.match("%s: %s$" % (re.escape(self.name), re.escape(self.value)), out) is not None:
-            return True
+        if self.value is None:
+            regex = "%s: " % re.escape(self.name)
         else:
-            return False
+            regex = "%s: %s$" % (re.escape(self.name), re.escape(self.value))
+
+        return not self.has_unknown_variable(out, err) and re.match(regex, out) is not None
 
     def contains(self):
         (rc, out, err) = self.run_sysrc('-n', self.name)
-        if out.find("unknown variable") == -1:
-            values = out.strip().split(self.delim)
-            if self.value in values:
-                return True
-            else:
-                return False
-        else:
+        if self.has_unknown_variable(out, err):
             return False
+
+        return self.value in out.strip().split(self.delim)
 
     def create(self):
         if self.module.check_mode:
             self.changed = True
             return
 
+        self.module._verbosity = 5
         (rc, out, err) = self.run_sysrc("%s=%s" % (self.name, self.value))
         if out.find("%s:" % (self.name)) == 0 and re.search("\-\> %s$" % re.escape(self.value), out) is not None:
             self.changed = True
@@ -139,11 +142,11 @@ class sysrc(object):
             return
 
         (rc, out, err) = self.run_sysrc('-x', self.name)
-        if out.find("unknown variable") == -1:
+        if self.has_unknown_variable(out, err):
             return False
-        else:
-            self.changed = True
-            return True
+
+        self.changed = True
+        return True
 
     def append(self):
         if self.module.check_mode:
@@ -234,6 +237,7 @@ def main():
     jail   = module.params.pop('jail')
     result = {
         'name'  : name,
+        'stated' : state,
         'state' : state,
         'value' : value,
         'dest'  : dest,
@@ -242,6 +246,9 @@ def main():
     }
 
     rcValue = sysrc(module, name, value, dest, delim, jail)
+
+    if module._verbosity >= 4:
+        result['existed'] = rcValue.exists()
 
     if state == 'present':
         not rcValue.exists() and rcValue.create()

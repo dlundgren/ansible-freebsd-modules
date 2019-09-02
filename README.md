@@ -2,6 +2,10 @@
 
 Ansible Modules for FreeBSD
 
+## Testing
+
+Testing requires Molecule, Vagrant & Virtualbox. 
+
 ## Module :: kld
 
 Loads the given kernel module, or puts it in the /boot/loader.conf
@@ -38,6 +42,7 @@ Uses [sysrc(8)](https://www.freebsd.org/cgi/man.cgi?query=sysrc) to set a sys va
 | Parameter | Choices/Defaults | Comments |
 | :-------- | :--------------- | :----- |
 | dest      | | The file to modify |
+| delim     | ` ` | Delimiter. Used with append/subtract |
 | name      | | Name of the variable to manage |
 | value     | | Required when not `state=absent` |
 | state     | **Choices**: <ul><li>append<li>absent</li><li>**present**</li><li>subtract</li></ul> | Whether the var should be appended, substracted, exist, or not exist. |

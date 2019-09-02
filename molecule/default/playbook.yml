@@ -1,0 +1,15 @@
+---
+- hosts: freebsd
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/local/bin/python
+  roles:
+    - name: ansible-freebsd-modules
+  tasks:
+    - name: reset system state for sysrc/kld tests
+      include: ansible/setup_tests.yml
+    - name: sysrc tests
+      include: ansible/test_sysrc.yml
+    - name: kld tests
+      include: ansible/test_kld.yml

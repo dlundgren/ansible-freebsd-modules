@@ -63,52 +63,48 @@ class FreeBSDKernelModule(object):
         self.changed = False
         self.sysrc   = module.get_bin_path('sysrc', True)
 
+    def has_unknown_variable(self, out, err):
+        # newer versions of sysrc use stderr instead of stdout
+        return err.find("unknown variable") > 0 or out.find("unknown variable") > 0
+
+    # Returns whether or not the module is set to load in /boot/loader.conf
+    def booted(self):
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load" %( self.sysrc, self.name ))
+        return not self.has_unknown_variable(out, err)
+
+    def boot_enable(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load=YES" % (self.sysrc, self.name))
+        if out.find("%s_load:" % (self.name)) != -1 and out.find("-> YES") != -1:
+            self.changed = True
+            return True
+        else:
+            return False
+    
+    def boot_disable(self):
+        if self.module.check_mode:
+            self.changed = True
+            return
+        
+        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf -x %s_load" % (self.sysrc, self.name))
+        if self.has_unknown_variable(out, err):
+            return False
+
+        self.changed = True
+        return True
+
     def loaded(self):
         cmd = [self.module.get_bin_path('kldstat', True)]
         # -q is not available on FreeBSD before 6.0 so using it would break on those versions
         cmd.append('-n')
         cmd.append("%s.ko" % self.name)
         (rc, out, err) = self.module.run_command(' '.join(cmd))
-        if rc == 0:
-            return True
-        else:
-            return False
-    
-    # Returns whether or not the module is set to load in /boot/loader.conf
-    def exists(self):
-        # sysrc doesn't really use exit codes
-        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load" %( self.sysrc, self.name ))
-        
-        # Message comes out on err...
-        if err.find("unknown variable") == -1:
-            return True
-        else:
-            return False
-        
-    def create(self):
-        if self.module.check_mode:
-            self.changed = True
-            return
-        
-        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf %s_load=YES" % (self.sysrc, self.name))
-        if out.find("%s_load:" % (self.name)) and out.find("-> YES"):
-            self.changed = True
-            return True
-        else:
-            return False
-    
-    def destroy(self):
-        if self.module.check_mode:
-            self.changed = True
-            return
-        
-        (rc, out, err) = self.module.run_command("%s -f /boot/loader.conf -x %s_load" % (self.sysrc, self.name))
-        if out.find("unknown variable") == -1:
-            return False
-        else:
-            self.changed = True
-            return True
-    
+
+        return rc == 0
+
     def load(self):
         if self.module.check_mode:
             self.changed = True
@@ -132,6 +128,10 @@ class FreeBSDKernelModule(object):
         cmd = [self.module.get_bin_path('kldunload', True)]
         cmd.append(self.name)
         (rc, out, err) = self.module.run_command(' '.join(cmd))
+
+        if err.find('kldunload: ') == 0:
+            self.module.fail_json(msg=err.replace('kldunload: ', '').rstrip())
+
         if rc == 0:
             self.changed = True
             return True
@@ -166,7 +166,7 @@ def main():
     }
     
     kld = FreeBSDKernelModule(module, name)
-    
+
     if load:
         not kld.loaded() and kld.load()
     else:
@@ -174,9 +174,9 @@ def main():
 
     # ensure it is set for boot
     if boot:
-        not kld.exists() and kld.create()
+        not kld.booted() and kld.boot_enable()
     else:
-        kld.exists() and kld.destroy()
+        kld.booted() and kld.boot_disable()
 
     result['changed'] = kld.changed
 
