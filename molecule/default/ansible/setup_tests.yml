@@ -14,7 +14,7 @@
     - wlan_acl
     - wlan_xauth
 
-- name: SETUP | load s3
+- name: SETUP | load kernel modules
   command: "kldload {{ item }}"
   changed_when: false
   failed_when: false
@@ -39,5 +39,5 @@
     path: "{{ item }}"
     state: absent
   with_items:
-    - /tmp/test_sysrc_new
+    - /tmp/sysrc_file
     - /usr/jails/testjail/etc/rc.conf

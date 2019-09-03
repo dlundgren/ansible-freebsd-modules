@@ -1,0 +1,156 @@
+---
+## certain modules can be loaded/unloaded without a reboot:
+##  - wsp
+##  - wlan_acl
+##  - wlan_xauth
+##  - s3
+- name: Test on FreeBSD VMs
+  when:
+    - ansible_facts.virtualization_type != 'docker'
+    - ansible_facts.distribution == 'FreeBSD'
+  block:
+    - name: ensure wsp & wlan_acl are not loaded
+      command: "kldunload {{ item }}"
+      changed_when: false
+      failed_when: false
+      with_items:
+        - wsp
+        - wlan_acl
+
+    ##
+    ## kld - loads & boots module
+    ##
+    - name: module is loaded and booted
+      kld:
+        name: wsp
+      register: kld_test0
+
+    - name: get file content
+      shell: "cat /boot/loader.conf | egrep -v ^\\#"
+      register: kld_content0
+
+    - name: get kldstat results 0
+      command: "kldstat -n wsp.ko"
+      register: kld_stat0
+
+    - name: module is loaded and booted
+      kld:
+        name: wsp
+      register: kld_test0_change
+
+    - name: validate results for module
+      assert:
+        that:
+          - kld_test0 is changed
+          - kld_test0_change is not changed
+          - "'wsp.ko' in kld_stat0.stdout"
+          - "'wsp_load=\"YES\"' in kld_content0.stdout_lines"
+
+    - name: module is unloaded and not booted
+      kld:
+        name: wsp
+        load: no
+        boot: no
+      register: kld_test1
+
+    - name: get file content
+      shell: "cat /boot/loader.conf | egrep -v ^\\#"
+      register: kld_content1
+
+    - name: get kldstat results 1
+      command: "kldstat -n wsp.ko"
+      failed_when: kld_stat1.rc != 1
+      register: kld_stat1
+
+    - name: module is unloaded and not booted
+      kld:
+        name: wsp
+        load: no
+        boot: no
+      register: kld_test1_change
+
+    - name: validate results for module removal
+      assert:
+        that:
+          - kld_test1 is changed
+          - kld_test1_change is not changed
+          - "'wsp.ko' not in kld_stat1.stdout"
+          - "'wsp_load=\"YES\"' not in kld_content1.stdout_lines"
+
+    ##
+    ## kld - load & no boot
+    ##
+    - name: module loaded but not booted
+      kld:
+        name: wsp
+        boot: no
+      register: kld_test2
+
+    - name: get file content
+      shell: "cat /boot/loader.conf | egrep -v ^\\#"
+      register: kld_content2
+
+    - name: get kldstat results 2
+      command: "kldstat -n wsp.ko"
+      register: kld_stat2
+
+    - name: module loaded but not booted
+      kld:
+        name: wsp
+        boot: no
+      register: kld_test2_change
+
+    - name: validate results for loading but not booting
+      assert:
+        that:
+          - kld_test2 is changed
+          - kld_test2_change is not changed
+          - "'wsp.ko' in kld_stat2.stdout"
+          - '"wsp_load=\"YES\"" not in kld_content2.stdout_lines'
+
+    ##
+    ## kld - boot & no load
+    ##
+    - name: module booted but not loaded
+      kld:
+        name: wlan_acl
+        load: no
+      register: kld_test3
+
+    - name: get file content
+      shell: "cat /boot/loader.conf | egrep -v ^\\#"
+      register: kld_content3
+
+    - name: get kldstat results
+      command: "kldstat -n wlan_acl.ko"
+      failed_when: kld_stat3.rc != 1
+      register: kld_stat3
+
+    - name: module booted but not loaded
+      kld:
+        name: wlan_acl
+        load: no
+      register: kld_test3_change
+
+    - name: validate results for booting module but not loading it
+      assert:
+        that:
+          - kld_test3 is changed
+          - kld_test3_change is not changed
+          - "'wlan_acl.ko' not in kld_stat3"
+          - '"wlan_acl_load=\"YES\"" in kld_content3.stdout_lines'
+
+    # module can't be unloaded
+    - name: modules can't be unloaded should result in failure
+      register: kld_test4
+      failed_when: '"Operation not supported" not in kld_test4.msg'
+      kld:
+        name: accf_dns
+        load: no
+
+    - name: can't unload non-found modules
+      register: kld_test5
+      failed_when: '"unload file" not in kld_test5.msg'
+      kld:
+        name: fdescfs
+        load: no

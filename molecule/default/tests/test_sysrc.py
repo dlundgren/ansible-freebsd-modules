@@ -8,32 +8,22 @@ testinfra_hosts = testinfra.utils.ansible_runner.AnsibleRunner(
 ).get_hosts('all')
 
 
-@pytest.mark.parametrize('file, key, value', [
-    # name,value (present, append, substract)
-    ("/etc/rc.conf", "new_item", "test"),
-    ("/etc/rc.conf", "firstboot_pkgs_list", "sudo virtualbox-ose-additions bash"),
-    ("/etc/rc.conf", "firstboot_freebsd_update_enable", "NO"),
-    # dest,name,value
-    ("/tmp/test_sysrc.conf", "test_test", "test"),
-    # dest,name,value,delim
-    ("/tmp/test_sysrc.conf", "test_delim", "t2,t3")
-])
-def test_items_in_files(host, file, key, value):
-    data = host.run('grep %s %s' % (key, file))
-
-    assert data.stdout.rstrip() == '%s="%s"' % (key, value)
-
-
-def test_removes_from_default_file(host):
-    cmd = host.run('grep firstboot_pkgs_enable /etc/rc.conf')
-
-    assert cmd.rc == 1
-
-
 def test_creates_specified_file(host):
-    file = host.file('/tmp/test_sysrc_new')
+    file = host.file('/tmp/sysrc_file')
 
     assert file.exists
+
+
+@pytest.mark.parametrize('file, key, value', [
+    # name,value (present, append, substract)
+    ("/etc/rc.conf", "sysrc_test_append", "test_a"),
+    # dest,name,value
+    ("/tmp/sysrc_file", "sysrc_test", "test"),
+])
+def test_items_in_files(host, file, key, value):
+    data = host.run('grep %s= %s' % (key, file))
+
+    assert data.stdout.rstrip() == '%s="%s"' % (key, value)
 
 
 def test_file_in_jail(host):

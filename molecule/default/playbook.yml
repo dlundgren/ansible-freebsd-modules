@@ -7,9 +7,18 @@
   roles:
     - name: ansible-freebsd-modules
   tasks:
+    - name: Set facts for ansible-src usage
+      set_fact:
+        ansible_facts:
+          virtualization_type: vagrant
+          distribution: FreeBSD
+    - debug:
+        var: ansible_facts
     - name: reset system state for sysrc/kld tests
       include: ansible/setup_tests.yml
-    - name: sysrc tests
-      include: ansible/test_sysrc.yml
+    - name: sysrc ansible
+      include: ansible/sysrc_ansible.yml
+    - name: sysrc jails
+      include: ansible/sysrc_jail.yml
     - name: kld tests
-      include: ansible/test_kld.yml
+      include: ansible/kld_ansible.yml
